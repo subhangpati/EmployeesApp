@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 
 class QueryFirebase{
 
-  todaysEvents() {
+  todaysEvents() async {
     print(DateTime.now());
     return FirebaseFirestore.instance
         .collection('events')

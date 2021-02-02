@@ -1,50 +1,34 @@
-import 'dart:io' as platform;
 import 'package:android_intent/android_intent.dart';
+import 'package:employe_services/features/trial.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:employe_services/components/navigation_bar.dart';
 import 'package:flutter/material.dart';
-import 'AppointmentsQuery.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'AppointmentsQuery.dart';
+import 'package:provider/provider.dart';
+import 'dart:io' as platform;
 
+double originLat ;
+double originLong ;
 
-String _destinationLati ;
-String _destinationLong ;
-String originLat ;
-String originLong ;
-
-
-class ServicesForToday extends StatefulWidget {
+class TodaysAppointment extends StatefulWidget {
   @override
-  _ServicesForTodayState createState() => _ServicesForTodayState();
+  _TodaysAppointmentState createState() => _TodaysAppointmentState();
 }
 
-class _ServicesForTodayState extends State<ServicesForToday> {
-  QueryFirebase today ;
-  Map<String, dynamic> userDetails = {};
+class _TodaysAppointmentState extends State<TodaysAppointment> {
+  QueryFirebase today;
 
-
- void getLocation({String uid}) async {
-   return await FirebaseFirestore.instance.collection('Location').doc(uid).get().then((value) {
-     userDetails.addAll(value.data());
-   }).whenComplete(() {
-     print('Data has been fetched!!');
-     print("${userDetails['latitude']}");
-     print("${userDetails['longitude']}");
-     setState(() {
-       _destinationLati = userDetails['latitude'];        // destination latitude
-       _destinationLong = userDetails['longitude'];       // destination longitude
-     });
-   });
- }
 
   void currentLocation() async {
     Position position = await Geolocator
         .getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-        setState(() {
-          originLat = position.latitude as String;
-          originLong = position.longitude as String ;
-        });
+    setState(() {
+      originLat = position.latitude ;
+      originLong = position.longitude ;
+
+    });
   }
 
 
@@ -53,8 +37,10 @@ class _ServicesForTodayState extends State<ServicesForToday> {
     super.initState();
     currentLocation();
   }
+
   @override
   Widget build(BuildContext context) {
+    today = Provider.of<QueryFirebase>(context);
     return Scaffold(
       appBar: buildAppBar('Today\'s Appointments'),
       body: FutureBuilder(
@@ -70,7 +56,7 @@ class _ServicesForTodayState extends State<ServicesForToday> {
                   String uidOfSelectedCustomer = order['current_userID'];
                   Stream<DocumentSnapshot> dataOfUser =
                   today.getCurrentCustomerData(uidOfSelectedCustomer);
-                  getLocation(uid:uidOfSelectedCustomer);
+
                   return AppointmentCard(
                     userStream: dataOfUser,
                     title: order['title'],
@@ -78,7 +64,6 @@ class _ServicesForTodayState extends State<ServicesForToday> {
                     time: order['selected_time'],
                     price: order['totalAmount'].toString(),
                     paymentStatus: order['PaymentStatus'],
-                    orderStatus : order['orderStatus']
                   );
                 });
           }),
@@ -86,10 +71,9 @@ class _ServicesForTodayState extends State<ServicesForToday> {
   }
 }
 
-// ignore: must_be_immutable
-class AppointmentCard extends StatefulWidget {
+class AppointmentCard extends StatelessWidget {
   final String title;
-  String paymentStatus;
+  final String paymentStatus;
   final String date;
   final String time;
   final String price;
@@ -107,25 +91,19 @@ class AppointmentCard extends StatefulWidget {
         this.address,
         this.customerName,
         this.userStream,
-        this.phoneNumber, orderStatus});
+        this.phoneNumber});
 
-  @override
-  _AppointmentCardState createState() => _AppointmentCardState();
-}
-
-class _AppointmentCardState extends State<AppointmentCard> {
   @override
   Widget build(BuildContext context) {
     List<String> titles = [];
-    titles = widget.title.split('/').toList();
+    titles = title.split('/').toList();
     return StreamBuilder(
-        stream: widget.userStream,
+        stream: userStream,
         builder: (context, snapshot) {
           DocumentSnapshot customerData = snapshot.data;
           if (snapshot.data == null) {
             return Scaffold(body: Center(child: CircularProgressIndicator()));
           }
-          var _chosenValue;
           return InkWell(
             onTap: () {
               showDialog(
@@ -136,7 +114,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
                           borderRadius:
                           BorderRadius.circular(20.0)), //this right here
                       child: Container(
-                        height: MediaQuery.of(context).size.height / 3,
+                        height: MediaQuery.of(context).size.height / 2,
                         child: Padding(
                           padding: const EdgeInsets.all(12.0),
                           child: Column(
@@ -165,7 +143,7 @@ class _AppointmentCardState extends State<AppointmentCard> {
                                 ),
                               ),
                               Text(
-                                'Total ₹${widget.price}',
+                                'Total ₹$price',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w400,
                                   fontSize: 16,
@@ -182,6 +160,44 @@ class _AppointmentCardState extends State<AppointmentCard> {
                                     },
                                     child: Text(
                                       'Call',
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                    color: const Color(0xFF1BC0C5),
+                                  ),
+                                ),
+                              ),
+                              Center(
+                                child: Container(
+                                  width: MediaQuery.of(context).size.width / 2,
+                                  child: RaisedButton(
+                                    onPressed: () async {
+                                      // double destinationLat = "${customerData['latitude']} " as double ;
+                                      // double destinationLong = "${customerData['longitude']} " as double ;
+                                      String destination = "${customerData['latitude']} , ${customerData['longitude']}" ;
+                                      String origin = "$originLat , $originLong";
+                                      // print('$destinationLat , $destinationLong , coming from map button ');
+                                      print(origin);
+                                      print("$destination this is the sum of double destination latitude and longitude" );
+                                      try{
+                                      // if (await MapLauncher.isMapAvailable(MapType.google)) {
+                                      //   await MapLauncher.showDirections(
+                                      //     mapType: MapType.google,
+                                      //     destination: Coords(destinationLat , destinationLong ),
+                                      //     origin: Coords(originLat, originLong),
+                                      //   );
+                                      // }
+                                        String url = "https://www.google.com/maps/dir/?api=1&origin=" + origin + "&destination=" + destination + "&travelmode=driving&dir_action=navigate";
+                                        if (await canLaunch(url)) {
+                                          await launch(url);
+                                        } else {
+                                          throw 'Could not launch $url';
+                                        }
+                                      } catch(e){
+                                        print(e);
+                                      }
+                                    },
+                                    child: Text(
+                                      'Map',
                                       style: TextStyle(color: Colors.white),
                                     ),
                                     color: const Color(0xFF1BC0C5),
@@ -243,12 +259,12 @@ class _AppointmentCardState extends State<AppointmentCard> {
                             padding: EdgeInsets.only(
                                 top: 5, bottom: 5, right: 20, left: 20),
                             decoration: BoxDecoration(
-                                color: widget.paymentStatus == 'PAID'
+                                color: paymentStatus == 'PAID'
                                     ? Colors.green
                                     : Colors.red,
                                 borderRadius: BorderRadius.circular(20)),
                             child: Text(
-                              widget.paymentStatus,
+                              paymentStatus,
                               style: TextStyle(color: Colors.white),
                             ),
                           ),
@@ -259,71 +275,11 @@ class _AppointmentCardState extends State<AppointmentCard> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          Text(widget.date),
-                          Text('${widget.time}:00'),
-                          Text('₹ ${widget.price}'),
+                          Text(date),
+                          Text('$time:00'),
+                          Text('₹ $price'),
                         ],
                       ),
-                    ),
-                    Container(
-                      child: Padding(
-                        padding: const EdgeInsets.all(5.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                             DropdownButton<String>(
-                                value: _chosenValue,
-                                icon: Icon(Icons.arrow_downward),
-                                iconSize: 20.0, // can be changed, default: 24.0
-                                iconEnabledColor: Colors.blue,
-                                items: <String>[
-                                  'Pending' , 'Finished'
-                                ].map<DropdownMenuItem>((String value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  );
-                                }).toList(),
-                                onChanged: (String value){
-                                  setState((){
-                                    _chosenValue = value;
-
-                                  });
-                                },
-                              ),
-                            RaisedButton(
-                              padding: const EdgeInsets.all(8.0),
-                              textColor: Colors.white,
-                              color: Colors.blue,
-                              onPressed: ()  {
-                               setState(()  {
-                                  widget.paymentStatus = _chosenValue ;
-                               });
-                              },
-                              child: new Text("SAVE"),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    Center(
-                        child: RaisedButton(
-                          child: Text('Load Map'),
-                            onPressed: () async {
-                              String destination = "$_destinationLati , $_destinationLong";
-                              String origin = "$originLat , $originLong";
-                              if (platform.Platform.isAndroid) {
-                                final AndroidIntent intent = new AndroidIntent(
-                                    action: 'action_view',
-                                    data: Uri.encodeFull(
-                                        "https://www.google.com/maps/dir/?api=1&origin=" +
-                                            "$origin" + "&destination=" +
-                                            destination +
-                                            "&travelmode=driving&dir_action=navigate"),
-                                    package: 'com.google.android.apps.maps');
-                                await intent.launch();
-                              }
-                            }),
                     ),
                   ],
                 ),
